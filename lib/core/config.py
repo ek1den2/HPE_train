@@ -39,7 +39,7 @@ config.MODEL = edict()
 config.MODEL.NAME = 'pose_resnet'
 config.MODEL.INIT_WEIGHTS = True
 config.MODEL.PRETRAINED = ''
-config.MODEL.NUM_JOINTS = 16
+config.MODEL.NUM_JOINTS = 13
 config.MODEL.IMAGE_SIZE = [256, 256]  # width * height, ex: 192 * 256
 config.MODEL.EXTRA = MODEL_EXTRAS[config.MODEL.NAME]
 
