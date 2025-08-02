@@ -195,7 +195,7 @@ class PoseResNet(nn.Module):
             self._init_decoder_weights()
 
             logger.info(f'=> 事前学習済みモデルをロード: {pretrained}')
-            checkpoint = torch.load(pretrained)
+            checkpoint = torch.load(pretrained, weights_only=True)
             if isinstance(checkpoint, OrderedDict):
                 state_dict = checkpoint
             elif isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
