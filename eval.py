@@ -8,7 +8,7 @@ from torchvision import transforms
 
 from torch.utils.tensorboard import SummaryWriter
 
-from lib.core.config import config, get_model_name
+from lib.core.config import config, update_config
 from lib.core.loss import JointsMSELoss
 from lib.utils.utils import get_optimizer, create_logger, save_checkpoint, data_loader
 from lib.core.function import validate

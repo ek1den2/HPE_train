@@ -17,14 +17,14 @@ MODEL:
   NAME: 'pose_resnet'
   PRETRAINED: 'models/pytorch/imagenet/resnet50-19c8e357.pth'
   IMAGE_SIZE:
-  - 120
-  - 160
+  - 192
+  - 256
   NUM_JOINTS: 13
   EXTRA:
     TARGET_TYPE: 'gaussian'
     HEATMAP_SIZE:
-    - 32
-    - 40
+    - 48
+    - 64
     SIGMA: 2
     FINAL_CONV_KERNEL: 1
     DECONV_WITH_BIAS: false

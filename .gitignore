@@ -104,6 +104,9 @@ venv.bak/
 /output
 /models
 /log
+/checkpoints
+/demo
+.DS_Store
 
 gpu_nms.cpp
 gpu_nms.c
