@@ -126,7 +126,8 @@ def main():
                                             'final_state.pth')
         # logger.info('=> saving final checkpoint')
         torch.save(model.module.state_dict(), final_model_state_file)
-        writer_dict['writer'].close()
+        
+    writer_dict['writer'].close()
 
     print("\n^^^^^^^^^^^ End Training ^^^^^^^^^^^^\n")
 
