@@ -101,7 +101,7 @@ def data_loader(config, gpus):
     valid_dataset = IRDataset(
         config,
         config.DATASET.ROOT,
-        config.DATASET.TEST_SET,
+        config.DATASET.VAL_SET,
         False,
         transforms.Compose([
             transforms.ToTensor(),

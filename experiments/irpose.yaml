@@ -8,7 +8,8 @@ PRINT_FREQ: 10
 DATASET:
   DATASET: 'irpose'
   ROOT: 'data/irpose/'
-  TEST_SET: 'val'
+  TEST_SET: 'test'
+  VAL_SET: 'val'
   TRAIN_SET: 'train'
   FLIP: true
   ROT_FACTOR: 40
@@ -17,14 +18,14 @@ MODEL:
   NAME: 'pose_resnet'
   PRETRAINED: 'models/pytorch/imagenet/resnet50-19c8e357.pth'
   IMAGE_SIZE:
-  - 192
-  - 256
+  - 160
+  - 160
   NUM_JOINTS: 13
   EXTRA:
     TARGET_TYPE: 'gaussian'
     HEATMAP_SIZE:
-    - 48
-    - 64
+    - 40
+    - 40
     SIGMA: 2
     FINAL_CONV_KERNEL: 1
     DECONV_WITH_BIAS: false
