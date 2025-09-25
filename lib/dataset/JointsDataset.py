@@ -58,10 +58,11 @@ class JointsDataset(Dataset):
         if self.data_format == 'zip':
             from lib.utils import zipreader
             data_numpy = zipreader.imread(
-                image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+                image_file, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_IGNORE_ORIENTATION)
         else:
+            # グレースケールで読み込み
             data_numpy = cv2.imread(
-                image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+                image_file, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_IGNORE_ORIENTATION)
 
         if data_numpy is None:
             logger.error('=> fail to read {}'.format(image_file))
