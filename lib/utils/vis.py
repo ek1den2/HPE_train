@@ -5,6 +5,13 @@ import torchvision
 import cv2
 
 from lib.core.inference import get_max_preds
+import torch
+
+# 接続を定義
+skleton = [[0, 1], [0, 4], [1, 4], [1, 2], [4, 5], [2, 3], [5, 6],
+           [1, 7], [4, 10], [7, 10], [7, 8], [10, 11], [8, 9], [11, 12]]
+
+
 
 
 def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis, file_name, nrow=8, padding=2):
@@ -28,12 +35,30 @@ def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis, fi
         for x in range(xmaps):
             if k >= nmaps:
                 break
-            joints = batch_joints[k]
-            joints_vis = batch_joints_vis[k]
 
+                
+            j = batch_joints[k]
+            j_vis = batch_joints_vis[k]
+
+            joints = j.clone() if isinstance(j, torch.Tensor) else j.copy()
+            joints_vis = j_vis.clone() if isinstance(j_vis, torch.Tensor) else j_vis.copy()
+
+            # 位置補正
+            for joint, in joints:
+                joint[0] += x * width + padding
+                joint[1] += y * height + padding
+
+            # スケルトン描画
+            if skleton is not None:
+                for joint_pair in skleton:
+                    j1, j2 = joint_pair
+                    if joints_vis[j1][0] and joints_vis[j2][0]:
+                        pt1 = (int(joints[j1][0]), int(joints[j1][1]))
+                        pt2 = (int(joints[j2][0]), int(joints[j2][1]))
+                        cv2.line(ndarr, pt1, pt2, [0, 255, 0], thickness=2)
+
+            # 関節描画
             for joint, joint_vis in zip(joints, joints_vis):
-                joint[0] = x * width + padding + joint[0]
-                joint[1] = y * height + padding + joint[1]
                 if joint_vis[0]:
                     cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 2, [255, 0, 0], 2)
             k = k + 1
