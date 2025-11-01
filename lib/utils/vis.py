@@ -5,15 +5,20 @@ import torchvision
 import cv2
 
 from lib.core.inference import get_max_preds
+import torch
+
+skeleton = [[0, 1], [0, 4], [1, 4], [1, 2], [4, 5], [2, 3], [5, 6],
+            [1, 7], [4, 10], [7, 10], [7, 8], [10, 11], [8, 9], [11, 12]]
 
 
-def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis, file_name, nrow=8, padding=2):
-    '''
-    batch_image: [batch_size, channel, height, width]
-    batch_joints: [batch_size, num_joints, 3],
-    batch_joints_vis: [batch_size, num_joints, 1],
-    }
-    '''
+def save_batch_image_with_joints(
+    batch_image,
+    batch_joints,
+    batch_joints_vis,
+    file_name,
+    nrow=8,
+    padding=2
+):
     grid = torchvision.utils.make_grid(batch_image, nrow, padding, True)
     ndarr = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
     ndarr = ndarr.copy()
@@ -23,21 +28,42 @@ def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis, fi
     ymaps = int(math.ceil(float(nmaps) / xmaps))
     height = int(batch_image.size(2) + padding)
     width = int(batch_image.size(3) + padding)
+
     k = 0
     for y in range(ymaps):
         for x in range(xmaps):
             if k >= nmaps:
                 break
-            joints = batch_joints[k]
-            joints_vis = batch_joints_vis[k]
 
+            j = batch_joints[k]
+            jv = batch_joints_vis[k]
+
+            joints = j.clone() if isinstance(j, torch.Tensor) else j.copy()
+            joints_vis = jv.clone() if isinstance(jv, torch.Tensor) else jv.copy()
+            
+            # 位置補正
+            for joint in joints:
+                joint[0] += x * width + padding
+                joint[1] += y * height + padding
+
+            # スケルトン描画（接続線）
+            if skeleton is not None:
+                for joint_pair in skeleton:
+                    j1, j2 = joint_pair
+                    if joints_vis[j1][0] and joints_vis[j2][0]:
+                        pt1 = (int(joints[j1][0]), int(joints[j1][1]))
+                        pt2 = (int(joints[j2][0]), int(joints[j2][1]))
+                        cv2.line(ndarr, pt1, pt2, color=(0, 255, 0), thickness=2)
+
+            # 関節描画（点）
             for joint, joint_vis in zip(joints, joints_vis):
-                joint[0] = x * width + padding + joint[0]
-                joint[1] = y * height + padding + joint[1]
                 if joint_vis[0]:
                     cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 2, [255, 0, 0], 2)
-            k = k + 1
+
+            k += 1
+
     cv2.imwrite(file_name, ndarr)
+
 
 
 def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
@@ -76,7 +102,7 @@ def save_batch_heatmaps(batch_image, batch_heatmaps, file_name,
                                     .clamp(0, 255)\
                                     .byte()\
                                     .cpu().numpy()
-
+        image = np.repeat(image, 3, axis=2) 
         resized_image = cv2.resize(image,
                                    (int(heatmap_width), int(heatmap_height)))
 
