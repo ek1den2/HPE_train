@@ -185,6 +185,7 @@ class IRDataset(JointsDataset):
                 'joints_3d_vis': joints_3d_vis,
                 'filename': '',
                 'imgnum': 0,
+                'bbox': [x, y, w, h],
             })
 
         return rec
@@ -206,7 +207,7 @@ class IRDataset(JointsDataset):
             [w * 1.0 / self.pixel_std, h * 1.0 / self.pixel_std],
             dtype=np.float32)
         if center[0] != -1:
-            scale = scale * 1.25
+            scale = scale * 1.1
 
         return center, scale
 
@@ -360,13 +361,13 @@ class IRDataset(JointsDataset):
 
         self._write_coco_keypoint_results(
             oks_nmsed_kpts, res_file)
-        if 'test' not in self.image_set:
-            info_str = self._do_python_keypoint_eval(
-                res_file, res_folder)
-            name_value = OrderedDict(info_str)
-            return name_value, name_value['AP']
-        else:
-            return {'Null': 0}, 0
+        # if 'test' not in self.image_set:
+        info_str = self._do_python_keypoint_eval(
+            res_file, res_folder)
+        name_value = OrderedDict(info_str)
+        return name_value, name_value['AP']
+        # else:
+        #     return {'Null': 0}, 0
 
     def _write_coco_keypoint_results(self, keypoints, res_file):
         data_pack = [{'cat_id': self._class_to_coco_ind[cls],
