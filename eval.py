@@ -8,39 +8,28 @@ from torchvision import transforms
 
 from torch.utils.tensorboard import SummaryWriter
 
-from lib.core.config import config, get_model_name
+from lib.core.config import config, get_model_name, update_config
 from lib.core.loss import JointsMSELoss
 from lib.utils.utils import get_optimizer, create_logger, save_checkpoint, data_loader
 from lib.core.function import validate
 
-import lib.network as network
+from lib.network.networks import get_pose_net
+from lib.dataset.irpose import IRDataset
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train keypoints network')
-    # general
-    parser.add_argument('--cfg',
-                        help='experiment configure file name',
-                        required=True,
-                        type=str)
-
+    parser = argparse.ArgumentParser(description='Evaluation')
+    parser.add_argument('--cfg', type=str, required=True, help='yamlファイルのパス')
     args, rest = parser.parse_known_args()
-    # update config
     update_config(args.cfg)
 
     # training
-    parser.add_argument('--frequent',
-                        help='frequency of logging',
+    parser.add_argument('--freq',
+                        help='frequency of ',
                         default=config.PRINT_FREQ,
                         type=int)
-    parser.add_argument('--gpus',
-                        help='gpus',
-                        type=str)
-    parser.add_argument('--workers',
-                        help='num of dataloader workers',
-                        type=int)
-    parser.add_argument('--model-file',
-                        help='model state file',
-                        type=str)
+    parser.add_argument('--gpus', type=str, help='gpus')
+    parser.add_argument('--workers', type=int, help='データローダーのワーカー数')
+    parser.add_argument('-m', '--model-file', type=str, help='.ptファイルのパス')
     parser.add_argument('--use-detect-bbox',
                         help='use detect bbox',
                         action='store_true')
@@ -85,17 +74,30 @@ def main():
     reset_config(config, args)
 
     logger, final_output_dir, tb_log_dir = create_logger(
-        config, args.cfg, 'eval'
+        config, args.cfg, 'test'
     )
 
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
 
-    model = eval('network.' + config.MODEL.NAME + '.get_pose_net')(config, is_train=False)
+    model = get_pose_net(config, is_train=False)
 
     if config.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
-        model.load_state_dict(torch.load(config.TEST.MODEL_FILE))
+        # checkpoint = torch.load(config.TEST.MODEL_FILE, weights_only=True)
+        checkpoint = torch.load(config.TEST.MODEL_FILE)
+        state_dict = checkpoint['state_dict']
+        
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith('module.'):
+                new_key = k[7:]
+            else:
+                new_key = k
+            new_state_dict[new_key] = v
+        
+        model.load_state_dict(new_state_dict)
+
     else:
         model_state_file = os.path.join(final_output_dir,
                                         'final_state.pth.tar')
@@ -111,9 +113,11 @@ def main():
     ).cuda()
 
     # Data loading code
-    normalize = transforms.Normalize(mean=[0.5], std=[0.5])
 
-    valid_dataset = eval('dataset.'+config.DATASET.DATASET)(
+    print('Loading test dataset ...')
+    normalize = transforms.Normalize(mean=config.DATASET.MEAN, std=config.DATASET.STD)
+
+    valid_dataset = IRDataset(
         config,
         config.DATASET.ROOT,
         config.DATASET.TEST_SET,
