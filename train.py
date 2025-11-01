@@ -68,7 +68,7 @@ def main():
 
     dump_input = torch.rand((
         config.TRAIN.BATCH_SIZE,
-        3,
+        1,                          # チャネル数（グレースケール）
         config.MODEL.IMAGE_SIZE[0],
         config.MODEL.IMAGE_SIZE[1]
         ))
