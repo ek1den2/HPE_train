@@ -39,6 +39,8 @@ class JointsDataset(Dataset):
         self.transform = transform
         self.db = []
 
+        self.mask = False
+
     def _get_db(self):
         raise NotImplementedError
 
@@ -58,10 +60,10 @@ class JointsDataset(Dataset):
         if self.data_format == 'zip':
             from lib.utils import zipreader
             data_numpy = zipreader.imread(
-                image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+                image_file, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_IGNORE_ORIENTATION)
         else:
             data_numpy = cv2.imread(
-                image_file, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+                image_file, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_IGNORE_ORIENTATION)
 
         if data_numpy is None:
             logger.error('=> fail to read {}'.format(image_file))
@@ -75,25 +77,67 @@ class JointsDataset(Dataset):
         score = db_rec['score'] if 'score' in db_rec else 1
         r = 0
 
-        if self.is_train:
-            sf = self.scale_factor
-            rf = self.rotation_factor
-            s = s * np.clip(np.random.randn()*sf + 1, 1 - sf, 1 + sf)
-            r = np.clip(np.random.randn()*rf, -rf*2, rf*2) \
-                if random.random() <= 0.6 else 0
+        if self.mask:
+            x, y, w, h = db_rec['bbox']
+            
+            w_scale = w * 1.25
+            h_scale = h * 1.25
 
-            if self.flip and random.random() <= 0.5:
-                data_numpy = data_numpy[:, ::-1, :]
-                joints, joints_vis = fliplr_joints(
-                    joints, joints_vis, data_numpy.shape[1], self.flip_pairs)
-                c[0] = data_numpy.shape[1] - c[0] - 1
+            x1 = max(0, int(c[0] - w_scale/2))
+            y1 = max(0, int(c[1] - h_scale/2))
+            x2 = min(int(c[0] + w_scale/2), data_numpy.shape[1])
+            y2 = min(int(c[1] + h_scale/2), data_numpy.shape[0])
 
-        trans = get_affine_transform(c, s, r, self.image_size)
-        input = cv2.warpAffine(
-            data_numpy,
-            trans,
-            (int(self.image_size[0]), int(self.image_size[1])),
-            flags=cv2.INTER_LINEAR)
+            masked_data = np.zeros_like(data_numpy)
+            masked_data[y1:y2, x1:x2] = data_numpy[y1:y2, x1:x2]
+
+            if self.is_train:
+                sf = self.scale_factor
+                rf = self.rotation_factor
+                s = s * np.clip(np.random.randn()*sf + 1, 1 - sf, 1 + sf)
+                r = np.clip(np.random.randn()*rf, -rf*2, rf*2) \
+                    if random.random() <= 0.6 else 0
+
+                if self.flip and random.random() <= 0.5:
+                    masked_data = masked_data[:, ::-1]    # 3 -> 1
+                    joints, joints_vis = fliplr_joints(
+                        joints, joints_vis, masked_data.shape[1], self.flip_pairs)
+                    c[0] = masked_data.shape[1] - c[0] - 1
+            trans = get_affine_transform(c, s, r, self.image_size)
+            input = cv2.warpAffine(
+                masked_data,
+                trans,
+                (int(self.image_size[0]), int(self.image_size[1])),
+                flags=cv2.INTER_LINEAR)
+        
+        else:
+            if self.is_train:
+                sf = self.scale_factor
+                rf = self.rotation_factor
+                s = s * np.clip(np.random.randn()*sf + 1, 1 - sf, 1 + sf)
+                r = np.clip(np.random.randn()*rf, -rf*2, rf*2) \
+                    if random.random() <= 0.6 else 0
+
+                if self.flip and random.random() <= 0.5:
+                    data_numpy = data_numpy[:, ::-1]    # 3 -> 1
+                    joints, joints_vis = fliplr_joints(
+                        joints, joints_vis, data_numpy.shape[1], self.flip_pairs)
+                    c[0] = data_numpy.shape[1] - c[0] - 1
+
+            trans = get_affine_transform(c, s, r, self.image_size)
+            input = cv2.warpAffine(
+                data_numpy,
+                trans,
+                (int(self.image_size[0]), int(self.image_size[1])),
+                flags=cv2.INTER_LINEAR)
+        
+        # # 入力可視化
+        # import os
+        # if idx % 10 == 0:
+        #     debug = os.path.join(self.output_path, f'debug_{idx}.jpg')
+        #     cv2.imwrite(debug, input)
+        #     logger.info(f's d i: {debug}')
+
 
         if self.transform:
             input = self.transform(input)
