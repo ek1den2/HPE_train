@@ -53,10 +53,14 @@ config.DATASET = edict()
 config.DATASET.ROOT = ''
 config.DATASET.DATASET = 'mpii'
 config.DATASET.TRAIN_SET = 'train'
-config.DATASET.TEST_SET = 'valid'
-config.DATASET.DATA_FORMAT = 'jpg'
+config.DATASET.VAL_SET = 'valid'
+config.DATASET.TEST_SET = 'test'
+config.DATASET.DATA_FORMAT = 'png'
 config.DATASET.HYBRID_JOINTS_TYPE = ''
 config.DATASET.SELECT_DATA = False
+
+config.DATASET.MEAN = [0.5]
+config.DATASET.STD = [0.5]
 
 # training data augmentation
 config.DATASET.FLIP = True
