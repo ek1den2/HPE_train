@@ -107,3 +107,8 @@ venv.bak/
 
 gpu_nms.cpp
 gpu_nms.c
+
+tbX
+*.yaml
+onnx
+*.csv
