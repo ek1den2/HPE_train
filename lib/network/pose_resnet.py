@@ -90,7 +90,7 @@ class PoseResNet(nn.Module):
         self.deconv_with_bias = extra.DECONV_WITH_BIAS
 
         super(PoseResNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -194,8 +194,9 @@ class PoseResNet(nn.Module):
             # デコーダーの重みを初期化
             self._init_decoder_weights()
 
-            logger.info(f'=> 事前学習済みモデルをロード: {pretrained}')
-            checkpoint = torch.load(pretrained, weights_only=True)
+            logger.info(f'=> Loading pretrained model {pretrained}')
+            # checkpoint = torch.load(pretrained, weights_only=True)
+            checkpoint = torch.load(pretrained)
             if isinstance(checkpoint, OrderedDict):
                 state_dict = checkpoint
             elif isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
@@ -227,7 +228,7 @@ class PoseResNet(nn.Module):
 
         else:
             # スクラッチからの初期化
-            logger.info('=> スクラッチから初期化')
+            logger.info('=> initialize weights')
             for m in [self.conv1, self.bn1, self.layer1, self.layer2, self.layer3, self.layer4]:
                 for mod in m.modules():
                     if isinstance(mod, nn.Conv2d):
@@ -249,7 +250,7 @@ class PoseResNet(nn.Module):
 
     def _init_decoder_weights(self):
         """ デコーダの重みを初期化 """
-        logger.info('=> deconv の重みを正規分布で初期化')
+        logger.info('=> initialize deconv with Gaussian')
         for m in self.deconv_layers.modules():
             if isinstance(m, nn.ConvTranspose2d):
                 nn.init.normal_(m.weight, std=0.001)
@@ -259,7 +260,7 @@ class PoseResNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
         
-        logger.info('=> 最終畳み込み層の重みを正規分布で初期化')
+        logger.info('=> initialize last layer with Gaussian')
         for m in self.final_layer.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.normal_(m.weight, std=0.001)
