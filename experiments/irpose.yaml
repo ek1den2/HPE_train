@@ -7,23 +7,26 @@ PRINT_FREQ: 10
 
 DATASET:
   DATASET: 'irpose'
-  ROOT: 'data/irpose/'
-  TEST_SET: 'val'
+  ROOT: '/home/masuryui/RESEARCH/dataset/irpose'
+  TEST_SET: 'test'
+  VAL_SET: 'val'
   TRAIN_SET: 'train'
   FLIP: true
-  ROT_FACTOR: 40
+  ROT_FACTOR: 15
   SCALE_FACTOR: 0.3
+  MEAN: [0.477]
+  STD: [0.140]
 MODEL:
   NAME: 'pose_resnet'
-  PRETRAINED: 'models/pytorch/imagenet/resnet50-19c8e357.pth'
+  PRETRAINED: ''
   IMAGE_SIZE:
-  - 120
+  - 160
   - 160
   NUM_JOINTS: 13
   EXTRA:
     TARGET_TYPE: 'gaussian'
     HEATMAP_SIZE:
-    - 32
+    - 40
     - 40
     SIGMA: 2
     FINAL_CONV_KERNEL: 1
