@@ -76,7 +76,7 @@ def save_checkpoint(states, is_best, output_dir,
 
 def data_loader(config, gpus):
     """ データロード """
-    normalize = transforms.Normalize(mean=[0.5], std=[0.5])
+    normalize = transforms.Normalize(mean=config.DATASET.MEAN, std=config.DATASET.STD)
 
     print('Loading trainging dataset ...')
     train_dataset = IRDataset(
@@ -101,7 +101,7 @@ def data_loader(config, gpus):
     valid_dataset = IRDataset(
         config,
         config.DATASET.ROOT,
-        config.DATASET.TEST_SET,
+        config.DATASET.VAL_SET,
         False,
         transforms.Compose([
             transforms.ToTensor(),
