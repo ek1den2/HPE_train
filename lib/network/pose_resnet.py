@@ -240,7 +240,7 @@ class PoseResNet(nn.Module):
             self._init_decoder_weights()
 
             # Zero-initialize the last BN in each residual branch
-            zero_init_residual = False # このフラグは設定ファイルで管理するのが望ましい
+            zero_init_residual = False
             if zero_init_residual:
                 for m in self.modules():
                     if isinstance(m, Bottleneck) and m.bn3.weight is not None:

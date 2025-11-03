@@ -22,38 +22,43 @@ class ConvBN(nn.Module):
         x = self.activation(x)
         return x
 
-# Depthwise Separable Convolution
+# Depthwise Separable Convolution（depthwise + bn + pointwise + bn）
 class DSConv(nn.Module):
     def __init__(self, nin, nout, kernel_size=3, stride=1, padding=1, bias=False, relu=True):
         super(DSConv, self).__init__()
         self.depthwise = nn.Conv2d(nin, nin, kernel_size=kernel_size, stride=stride, padding=padding, groups=nin, bias=bias)
+        self.bn1 = nn.BatchNorm2d(nin)
+        self.relu1 = nn.ReLU(inplace=True)
+
         self.pointwise = nn.Conv2d(nin, nout, kernel_size=1, bias=bias)
-        self.bn = nn.BatchNorm2d(nout)
-        self.activation = nn.ReLU(inplace=True) if relu else nn.Identity()
+        self.bn2 = nn.BatchNorm2d(nout)
+        self.relu2 = nn.ReLU(inplace=True) if relu else nn.Identity()
 
     def forward(self, x):
         x = self.depthwise(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+
         x = self.pointwise(x)
-        x = self.bn(x)
-        x = self.activation(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
         return x
 
 
 class MobileNet(nn.Module):
-    """MobileNet モデル"""
+    """MobileNetV1 モデル"""
     
-    def __init__(self, conv_width=1.0):
+    def __init__(self, in_channels=64, conv_width=1.0):
         super(MobileNet, self).__init__()
         print("Building MobileNet")
 
         self.conv_width = conv_width
-
         min_depth = 8
         depth = lambda d: max(round(d * self.conv_width), min_depth)
 
         # MobileNetバックボーン（前処理ステージ）
         self.model0 = nn.Sequential(
-            DSConv(depth(64), depth(64), 3, 1, 1),       # index 1
+            DSConv(depth(in_channels), depth(64), 3, 1, 1),       # index 1
             DSConv(depth(64), depth(128), 3, 2, 1),      # index 2
             DSConv(depth(128), depth(128), 3, 1, 1),     # index 3
             DSConv(depth(128), depth(256), 3, 2, 1),     # index 4
@@ -67,21 +72,21 @@ class MobileNet(nn.Module):
         )
 
     def forward(self, x):
-        output = self.model0(x)
-        return output
+        return self.model0(x)
 
 class PoseMobileNet(nn.Module):
     def __init__(self, cfg):
-        self.inplanes = 512
         extra = cfg.MODEL.EXTRA
         self.deconv_with_bias = extra.DECONV_WITH_BIAS
+        self.inplanes = 512
 
         super(PoseMobileNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.mobile_net = MobileNet()
+        
+        self.mobile_net = MobileNet(in_channels=64, conv_width=1.0)
 
         # deconv
         self.deconv_layers = self._make_deconv_layer(
@@ -139,7 +144,7 @@ class PoseMobileNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        # ResNet
+        # MobileNet部分
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -152,57 +157,65 @@ class PoseMobileNet(nn.Module):
         x = self.final_layer(x)
 
         return x
-
+    
 
     def init_weights(self, pretrained=''):
         if os.path.isfile(pretrained):
-            logger.info('=> deconv の重みを正規分布での初期化')
-            for name, m in self.deconv_layers.named_modules():
-                if isinstance(m, nn.ConvTranspose2d):
-                    logger.info('=> init {}.weight as normal(0, 0.001)'.format(name))
-                    logger.info('=> init {}.bias as 0'.format(name))
-                    nn.init.normal_(m.weight, std=0.001)
-                    if self.deconv_with_bias:
-                        nn.init.constant_(m.bias, 0)
-                elif isinstance(m, nn.BatchNorm2d):
-                    logger.info('=> init {}.weight as 1'.format(name))
-                    logger.info('=> init {}.bias as 0'.format(name))
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
-            logger.info('=> 最終層 conv の重みを正規分布での初期化')
-            for m in self.final_layer.modules():
-                if isinstance(m, nn.Conv2d):
-                    # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                    logger.info('=> init {}.weight as normal(0, 0.001)'.format(name))
-                    logger.info('=> init {}.bias as 0'.format(name))
-                    nn.init.normal_(m.weight, std=0.001)
-                    nn.init.constant_(m.bias, 0)
-
-            # pretrained_state_dict = torch.load(pretrained)
-            logger.info('=> loading pretrained model: {}'.format(pretrained))
-            # self.load_state_dict(pretrained_state_dict, strict=False)
+            # 事前学習済みモデルの読み込み
+            logger.info(f'=> loading pretrained model {pretrained}')
             checkpoint = torch.load(pretrained)
+
             if isinstance(checkpoint, OrderedDict):
                 state_dict = checkpoint
             elif isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                state_dict_old = checkpoint['state_dict']
-                state_dict = OrderedDict()
-                # delete 'module.' because it is saved from DataParallel module
-                for key in state_dict_old.keys():
-                    if key.startswith('module.'):
-                        # state_dict[key[7:]] = state_dict[key]
-                        # state_dict.pop(key)
-                        state_dict[key[7:]] = state_dict_old[key]
-                    else:
-                        state_dict[key] = state_dict_old[key]
+                state_dict = checkpoint['state_dict']
             else:
-                raise RuntimeError(
-                    'No state_dict found in checkpoint file {}'.format(pretrained))
-            self.load_state_dict(state_dict, strict=False)
+                state_dict = checkpoint
+            
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k[7:] if k.startswith('module.') else k
+                new_state_dict[name] = v
+            
+            missing_keys, unexpected_keys = self.load_state_dict(new_state_dict, strict=False)
+            logger.info(f'=> missing keys: {missing_keys}')
+            logger.info(f'=> unexpected keys: {unexpected_keys}')
+        
         else:
-            logger.error('=> imagenet pretrained model does not exist')
-            logger.error('=> please download it first')
-            raise ValueError('imagenet pretrained model does not exist')
+            # スクラッチからの初期化
+            logger.info('=> initializing weights from scratch')
+            self._init_encoder_weights()
+            self._init_decoder_weights()
+
+
+    def _init_encoder_weights(self):
+        """ エンコーダの重みを初期化 """
+        logger.info('=> initializing encoder weights')
+        for m in [self.conv1, self.bn1, self.mobile_net]:
+            for mod in m.modules():
+                if isinstance(mod, nn.Conv2d):
+                    nn.init.kaiming_normal_(mod.weight, mode='fan_out', nonlinearity='relu')
+                elif isinstance(mod, nn.BatchNorm2d):
+                    nn.init.constant_(mod.weight, 1)
+                    nn.init.constant_(mod.bias, 0)
+
+    def _init_decoder_weights(self):
+        """ デコーダの重みを初期化 """
+        logger.info('=> initializing decoder weights')
+        for m in self.deconv_layers.modules():
+            if isinstance(m, nn.ConvTranspose2d):
+                nn.init.normal_(m.weight, std=0.001)
+                if self.deconv_with_bias:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        
+        logger.info('=> initializing final layer with Gaussian')
+        for m in self.final_layer.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.normal_(m.weight, std=0.001)
+                nn.init.constant_(m.bias, 0)
 
 
 def get_model(cfg, is_train):
