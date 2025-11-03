@@ -33,6 +33,21 @@ POSE_RESNET.SIGMA = 2
 
 # pose_mobilenet
 POSE_MOBILENET = edict()
+POSE_MOBILENET.CONV_WIDTH = 1.0
+
+POSE_MOBILENET.DECONV_WITH_BIAS = False
+POSE_MOBILENET.NUM_DECONV_LAYERS = 3
+POSE_MOBILENET.NUM_DECONV_FILTERS = [256, 256, 256]
+POSE_MOBILENET.NUM_DECONV_KERNELS = [4, 4, 4]
+POSE_MOBILENET.FINAL_CONV_KERNEL = 1
+POSE_MOBILENET.TARGET_TYPE = 'gaussian'
+POSE_MOBILENET.HEATMAP_SIZE = [64, 64]  # width * height, ex: 24 * 32
+POSE_MOBILENET.SIGMA = 2
+
+# pose_mobilenet_v2
+POSE_MOBILENETV2 = edict()
+POSE_MOBILENETV2.CONV_WIDTH = 1.0
+
 POSE_MOBILENET.DECONV_WITH_BIAS = False
 POSE_MOBILENET.NUM_DECONV_LAYERS = 3
 POSE_MOBILENET.NUM_DECONV_FILTERS = [256, 256, 256]
@@ -44,7 +59,8 @@ POSE_MOBILENET.SIGMA = 2
 
 MODEL_EXTRAS = {
     'pose_resnet': POSE_RESNET,
-    'pose_mobilenet': POSE_MOBILENET
+    'pose_mobilenet': POSE_MOBILENET,
+    'pose_mobilenet_v2': POSE_MOBILENETV2
 }
 
 # モデル共通のパラメータ
@@ -225,6 +241,16 @@ def get_model_name(cfg):
             deconv_suffix=deconv_suffix)
         
     elif name in ['pose_mobilenet']:
+        deconv_suffix = ''.join(
+            'd{}'.format(num_filters)
+            for num_filters in extra.NUM_DECONV_FILTERS)
+        full_name = '{height}x{width}_{name}_{deconv_suffix}'.format(
+            height=cfg.MODEL.IMAGE_SIZE[1],
+            width=cfg.MODEL.IMAGE_SIZE[0],
+            name=name,
+            deconv_suffix=deconv_suffix)
+
+    elif name in ['pose_mobilenet_v2']:
         deconv_suffix = ''.join(
             'd{}'.format(num_filters)
             for num_filters in extra.NUM_DECONV_FILTERS)
